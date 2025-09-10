@@ -1,1 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz Battle Ground</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <button id="themeToggle" aria-label="Toggle theme">Light Mode</button>
 
+  <!-- Start Page -->
+  <div id="startPage" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+    <h2 id="startTitle">Enter The Battlefield</h2>
+    <input
+      type="text"
+      id="playerIdInput"
+      placeholder="Enter your Player ID"
+      aria-label="Player ID"
+      autocomplete="off"
+      maxlength="20"
+    />
+    <button id="enterBtn" disabled aria-disabled="true">Enter The Battlefield</button>
+  </div>
+
+  <!-- Animation Overlay -->
+  <div id="animationOverlay" class="hidden" aria-hidden="true">
+    <div class="animation-content">
+      <h2>Loading Battle...</h2>
+      <div class="loader"></div>
+    </div>
+  </div>
+
+  <!-- Quiz Container (hidden initially) -->
+  <div class="container" id="quizContainer" role="main" aria-live="polite" style="display:none;">
+    <h1>Quiz Battle Ground</h1>
+    <div id="quiz" aria-atomic="true">
+      <div class="question-number" id="questionNumber"></div>
+      <div class="question-text" id="questionText"></div>
+      <ul class="options" id="optionsList"></ul>
+      <div class="buttons">
+        <button id="prevBtn" aria-label="Previous question">Previous</button>
+        <button id="clearBtn" aria-label="Clear selection">Clear</button>
+        <button id="nextBtn" aria-label="Next question">Next</button>
+      </div>
+    </div>
+    <div id="result" class="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    const quizData = [
+      {
+        question: "What does HTML stand for?",
+        options: [
+          "Hyper Text Markup Language",
+          "Home Tool Markup Language",
+          "Hyperlinks and Text Markup Language",
+          "Hyperlinking Text Marking Language"
+        ],
+        answer: 0
+      },
+      {
+        question: "Which HTML element is used to define the title of a document?",
+        options: ["<meta>", "<title>", "<head>", "<header>"],
+        answer: 1
+      },
+      {
+        question: "Which tag is used to create a hyperlink in HTML?",
+        options: ["<a>", "<link>", "<href>", "<hyperlink>"],
+        answer: 0
+      },
+      {
+        question: "What does the <br> tag do?",
+        options: [
+          "Creates a horizontal line",
+          "Inserts a line break",
+          "Starts a new paragraph",
+          "Bold the text"
+        ],
+        answer: 1
+      },
+      {
+        question: "Which attribute is used to specify an image's URL in the <img> tag?",
+        options: ["src", "href", "alt", "link"],
+        answer: 0
+      },
+      {
+        question: "Which tag is used to create an ordered list?",
+        options: ["<ul>", "<ol>", "<li>", "<list>"],
+        answer: 1
+      },
+      {
+        question: "What is the correct HTML element for inserting a large heading?",
+        options: ["<h1>", "<head>", "<heading>", "<h6>"],
+        answer: 0
+      },
+      {
+        question: "Which HTML attribute specifies an alternate text for an image, if the image cannot be displayed?",
+        options: ["alt", "title", "src", "longdesc"],
+        answer: 0
+      },
+      {
+        question: "What is the correct way to create a checkbox in HTML?",
+        options: [
+          "<input type='checkbox'>",
+          "<checkbox>",
+          "<input type='check'>",
+          "<check>"
+        ],
+        answer: 0
+      },
+      {
+        question: "How can you open a link in a new tab/browser window?",
+        options: [
+          "<a href='url' target='_blank'>",
+          "<a href='url' new>",
+          "<a href='url' target='new'>",
+          "<a href='url' open='new'>"
+        ],
+        answer: 0
+      }
+    ];
+
+    // Elements
+    const startPage = document.getElementById('startPage');
+    const playerIdInput = document.getElementById('playerIdInput');
+    const enterBtn = document.getElementById('enterBtn');
+    const animationOverlay = document.getElementById('animationOverlay');
+
+    const quizContainer = document.getElementById('quizContainer');
+    const questionNumberElem = document.getElementById("questionNumber");
+    const questionTextElem = document.getElementById("questionText");
+    const optionsList = document.getElementById("optionsList");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const resultElem = document.getElementById("result");
+    const quizElem = document.getElementById("quiz");
+    const themeToggle = document.getElementById("themeToggle");
+
+    // State
+    let currentQuestion = 0;
+    let answers = new Array(quizData.length).fill(null);
+    let playerId = "";
+
+    // Enable enter button only if input is not empty
+    playerIdInput.addEventListener("input", () => {
+      const valid = playerIdInput.value.trim().length > 0;
+      enterBtn.disabled = !valid;
+      enterBtn.setAttribute('aria-disabled', !valid);
+    });
+
+    // Enter button click: show animation, then quiz
+    enterBtn.addEventListener("click", () => {
+      playerId = playerIdInput.value.trim();
+      if (!playerId) return;
+
+      // Hide start, show animation overlay
+      startPage.style.display = "none";
+      animationOverlay.classList.remove("hidden");
+
+      // After animation (3 seconds), show quiz
+      setTimeout(() => {
+        animationOverlay.classList.add("hidden");
+        quizContainer.style.display = "block";
+        loadQuestion();
+      }, 3000); // animation duration in ms
+    });
+
+    function loadQuestion() {
+      const q = quizData[currentQuestion];
+      questionNumberElem.textContent = `Question ${currentQuestion + 1} of ${quizData.length}`;
+      questionTextElem.innerHTML = q.question;
+
+      optionsList.innerHTML = "";
+      q.options.forEach((option, idx) => {
+        const li = document.createElement("li");
+
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "option";
+        input.id = `option${idx}`;
+        input.value = idx;
+        input.checked = answers[currentQuestion] === idx;
+        input.setAttribute("aria-checked", input.checked);
+        input.addEventListener("change", () => {
+          answers[currentQuestion] = idx;
+          updateButtons();
+        });
+
+        const label = document.createElement("label");
+        label.htmlFor = input.id;
+        label.textContent = option;
+
+        li.appendChild(input);
+        li.appendChild(label);
+        optionsList.appendChild(li);
+      });
+
+      updateButtons();
+    }
+
+    function updateButtons() {
+      prevBtn.disabled = currentQuestion === 0;
+      nextBtn.disabled = answers[currentQuestion] === null;
+      clearBtn.disabled = answers[currentQuestion] === null;
+    }
+
+    prevBtn.addEventListener("click", () => {
+      if (currentQuestion > 0) {
+        currentQuestion--;
+        loadQuestion();
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (currentQuestion < quizData.length - 1) {
+        currentQuestion++;
+        loadQuestion();
+      } else {
+        showResult();
+      }
+    });
+
+    clearBtn.addEventListener("click", () => {
+      answers[currentQuestion] = null;
+      loadQuestion();
+    });
+
+    function showResult() {
+      let correctCount = 0;
+      answers.forEach((ans, idx) => {
+        if (ans === quizData[idx].answer) {
+          correctCount++;
+        }
+      });
+
+      quizElem.style.display = "none";
+      resultElem.style.display = "block";
+
+      resultElem.innerHTML = `
+        <h2>Battle Result</h2>
+        <p>Player ID: <strong>${playerId}</strong></p>
+        <p>You scored ${correctCount} out of ${quizData.length}.</p>
+        <button id="restartBtn">Restart Battle</button>
+      `;
+
+      const restartBtn = document.getElementById("restartBtn");
+      restartBtn.addEventListener("click", () => {
+        currentQuestion = 0;
+        answers = new Array(quizData.length).fill(null);
+        resultElem.style.display = "none";
+        quizElem.style.display = "block";
+        loadQuestion();
+      });
+    }
+
+    // Theme toggle logic
+    let lightMode = false;
+    function updateTheme() {
+      if (lightMode) {
+        document.body.classList.add("light");
+        themeToggle.textContent = "Dark Mode";
+        themeToggle.setAttribute("aria-label", "Switch to dark mode");
+      } else {
+        document.body.classList.remove("light");
+        themeToggle.textContent = "Light Mode";
+        themeToggle.setAttribute("aria-label", "Switch to light mode");
+      }
+    }
+    themeToggle.addEventListener("click", () => {
+      lightMode = !lightMode;
+      updateTheme();
+    });
+    updateTheme();
+
+  </script>
+</body>
+</html>
